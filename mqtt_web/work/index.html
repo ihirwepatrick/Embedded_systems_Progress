@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Station</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin-top: 20px; background: #f4f4f4; }
+        .container { width: 300px; margin: auto; padding: 10px; border-radius: 10px; background: white; box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1); }
+        h2 { color: #007BFF; }
+        .data { font-size: 20px; font-weight: bold; color: #333; }
+        canvas { width: 100%; max-width: 400px; height: 200px; background: white; display: block; margin: 20px auto; border: 1px solid #ddd; }
+    </style>
+</head>
+<body>
+    <h2>MQTT Weather Station</h2>
+    <div class="container">
+        <p>Temperature: <span id="temp" class="data">--</span> °C</p>
+        <p>Humidity: <span id="humidity" class="data">--</span> %</p>
+    </div>
+    <canvas id="graph"></canvas>
+
+    <script>
+        const canvas = document.getElementById("graph");
+        const ctx = canvas.getContext("2d");
+
+        let temperatureData = [];
+        let humidityData = [];
+        const maxPoints = 20;
+
+        async function fetchData() {
+            const response = await fetch('fetch_data.php');
+            const data = await response.json();
+
+            const labels = data.map(d => new Date(d.timestamp).toLocaleTimeString());
+            const temperatures = data.map(d => d.temperature);
+            const humidities = data.map(d => d.humidity);
+
+            temperatureData = temperatures;
+            humidityData = humidities;
+
+            drawGraph();
+        }
+
+        function drawGraph() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = "#ddd";
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height / 2);
+            ctx.lineTo(canvas.width, canvas.height / 2);
+            ctx.stroke();
+
+            drawLine(temperatureData, "red");
+            drawLine(humidityData, "blue");
+        }
+
+        function drawLine(data, color) {
+            if (data.length < 2) return;
+
+            ctx.strokeStyle = color;
+            ctx.beginPath();
+            let step = canvas.width / (maxPoints - 1);
+            ctx.moveTo(0, canvas.height - (data[0] / 50) * canvas.height);
+
+            for (let i = 1; i < data.length; i++) {
+                let x = i * step;
+                let y = canvas.height - (data[i] / 50) * canvas.height;
+                ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+        }
+
+        setInterval(fetchData, 5000); // Refresh every 5 seconds
+        fetchData(); // Initial fetch on load
+    </script>
+</body>
+</html>

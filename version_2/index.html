@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MQTT Light Control</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap">
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1E1E1E;
+            --text-color: #FFFFFF;
+            --on-color: #28A745;
+            --on-hover: #218838;
+            --off-color: #DC3545;
+            --off-hover: #C82333;
+            --neutral-color: #6C757D;
+            --light-on: #FFEB3B;
+            --light-off: #555555;
+            --focus-color: #A0C4FF;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background: var(--card-bg);
+            padding: 2.5rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+            text-align: center;
+            width: 100%;
+            max-width: 400px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 5px;
+            background: linear-gradient(90deg, var(--on-color), var(--off-color));
+            opacity: 0.7;
+        }
+
+        h1 {
+            color: var(--text-color);
+            margin-bottom: 2rem;
+            font-size: 1.8rem;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+
+        .buttons {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        button {
+            flex: 1;
+            padding: 0.8rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        button:focus {
+            outline: 3px solid var(--focus-color);
+        }
+
+        button::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 5px;
+            height: 5px;
+            background: rgba(255, 255, 255, 0.5);
+            opacity: 0;
+            border-radius: 100%;
+            transform: scale(1, 1) translate(-50%);
+            transform-origin: 50% 50%;
+        }
+
+        button:active::after {
+            opacity: 0.6;
+            transform: scale(50, 50) translate(-50%);
+            transition: transform 0.5s, opacity 1s;
+        }
+
+        #onButton {
+            background-color: var(--on-color);
+            color: #fff;
+        }
+
+        #onButton:hover {
+            background-color: var(--on-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        #offButton {
+            background-color: var(--off-color);
+            color: #fff;
+        }
+
+        #offButton:hover {
+            background-color: var(--off-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            font-size: 1.2rem;
+            background-color: rgba(0, 0, 0, 0.2);
+            padding: 0.8rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+        }
+
+        .status-indicator {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background-color: var(--neutral-color);
+            transition: background-color 0.3s ease;
+        }
+
+        .status.on .status-indicator {
+            background-color: var(--on-color);
+            box-shadow: 0 0 10px var(--on-color);
+        }
+
+        .status.off .status-indicator {
+            background-color: var(--off-color);
+            box-shadow: 0 0 10px var(--off-color);
+        }
+
+        .bulb-container {
+            margin: 2rem auto;
+            position: relative;
+            width: 120px;
+            height: 180px;
+        }
+
+        .bulb {
+            width: 60px;
+            height: 80px;
+            background-color: var(--light-off);
+            border-radius: 50% 50% 20% 20%;
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            transition: all 0.3s ease;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .bulb::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.2) 60%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .bulb.on {
+            background-color: var(--light-on);
+            box-shadow: 
+                0 0 60px rgba(255, 235, 59, 0.6),
+                0 0 100px rgba(255, 235, 59, 0.3);
+        }
+
+        .bulb.on::before {
+            opacity: 1;
+        }
+
+        .bulb-base {
+            width: 30px;
+            height: 20px;
+            background-color: #888;
+            position: absolute;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-radius: 5px 5px 0 0;
+        }
+
+        .bulb-socket {
+            width: 40px;
+            height: 30px;
+            background-color: #444;
+            position: absolute;
+            top: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-radius: 5px;
+        }
+
+        .light-rays {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 200px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        .light-rays.on {
+            opacity: 0.7;
+        }
+
+        .ray {
+            position: absolute;
+            top: 40px;
+            left: 100px;
+            width: 2px;
+            height: 100px;
+            background: linear-gradient(to bottom, rgba(255, 235, 59, 0.8), transparent);
+            transform-origin: top center;
+        }
+
+        .connection-status {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.8rem;
+            color: var(--neutral-color);
+        }
+
+        .connection-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--neutral-color);
+        }
+
+        .connection-dot.connected {
+            background-color: var(--on-color);
+        }
+
+        .connection-dot.error {
+            background-color: var(--off-color);
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>MQTT Light Control</h1>
+        <div class="connection-status">
+            <div class="connection-dot" id="connectionDot"></div>
+            <span id="connectionText">Disconnected</span>
+        </div>
+        <div class="buttons">
+            <button id="onButton">Turn ON</button>
+            <button id="offButton">Turn OFF</button>
+        </div>
+        <div class="status" id="status">
+            <div class="status-indicator"></div>
+            <span>No command sent yet</span>
+        </div>
+        <div class="bulb-container">
+            <div class="light-rays" id="lightRays">
+                <!-- Light rays created by JS -->
+            </div>
+            <div class="bulb" id="bulb"></div>
+            <div class="bulb-base"></div>
+            <div class="bulb-socket"></div>
+        </div>
+    </div>
+    <script>
+        // Create light rays
+        const lightRays = document.getElementById('lightRays');
+        for (let i = 0; i < 12; i++) {
+            const ray = document.createElement('div');
+            ray.className = 'ray';
+            ray.style.transform = `rotate(${i * 30}deg)`;
+            lightRays.appendChild(ray);
+        }
+
+        // Connection status elements
+        const connectionDot = document.getElementById('connectionDot');
+        const connectionText = document.getElementById('connectionText');
+
+        // MQTT Configuration
+        const broker = "ws://157.173.101.159:9001/mqtt";
+        const topic = "/i-gabriel/light_control";
+        const client = new Paho.MQTT.Client(broker, "webClient");
+        
+        // Set up connection options
+        client.connect({
+            onSuccess: () => {
+                console.log("Connected to MQTT broker");
+                client.subscribe(topic);
+                connectionDot.className = "connection-dot connected";
+                connectionText.textContent = "Connected";
+            },
+            onFailure: (err) => {
+                console.error("Failed to connect to MQTT broker", err);
+                connectionDot.className = "connection-dot error";
+                connectionText.textContent = "Connection Failed";
+            }
+        });
+        
+        // Handle incoming messages
+        client.onMessageArrived = function (message) {
+            updateStatus(message.payloadString);
+        };
+        
+        // Handle connection lost
+        client.onConnectionLost = function(responseObject) {
+            if (responseObject.errorCode !== 0) {
+                console.log("Connection lost: " + responseObject.errorMessage);
+                connectionDot.className = "connection-dot error";
+                connectionText.textContent = "Disconnected";
+            }
+        };
+        
+        // Publish message function
+        function publishMessage(message) {
+            if (client.isConnected()) {
+                const packet = new Paho.MQTT.Message(message);
+                packet.destinationName = topic;
+                client.send(packet);
+                updateStatus(message);
+            } else {
+                console.error("MQTT Client is not connected.");
+                alert("Not connected to MQTT broker. Please wait for connection.");
+            }
+        }
+        
+        // Update status function
+        function updateStatus(status) {
+            const statusElement = document.getElementById("status");
+            const statusIndicator = statusElement.querySelector(".status-indicator");
+            const statusText = statusElement.querySelector("span");
+            const bulbElement = document.getElementById("bulb");
+            const lightRaysElement = document.getElementById("lightRays");
+            
+            statusText.textContent = "Status: " + status;
+            
+            if (status === "ON") {
+                statusElement.classList.add("on");
+                statusElement.classList.remove("off");
+                bulbElement.classList.add("on");
+                lightRaysElement.classList.add("on");
+                
+                // Add subtle flicker effect to the bulb
+                startFlicker();
+            } else if (status === "OFF") {
+                statusElement.classList.add("off");
+                statusElement.classList.remove("on");
+                bulbElement.classList.remove("on");
+                lightRaysElement.classList.remove("on");
+                
+                // Stop flicker effect
+                stopFlicker();
+            }
+        }
+        
+        let flickerInterval;
+        
+        function startFlicker() {
+            // Clear any existing interval
+            stopFlicker();
+            
+            // Create subtle random flicker effect
+            flickerInterval = setInterval(() => {
+                const bulb = document.getElementById("bulb");
+                const intensity = 0.9 + Math.random() * 0.2; // Random between 0.9 and 1.1
+                
+                bulb.style.filter = `brightness(${intensity})`;
+            }, 100);
+        }
+        
+        function stopFlicker() {
+            if (flickerInterval) {
+                clearInterval(flickerInterval);
+                document.getElementById("bulb").style.filter = '';
+            }
+        }
+        
+        // Button event listeners
+        document.getElementById("onButton").addEventListener("click", () => publishMessage("ON"));
+        document.getElementById("offButton").addEventListener("click", () => publishMessage("OFF"));
+    </script>
+</body>
+</html>
